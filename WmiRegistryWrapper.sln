@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WmiRegistryWrapper", "WmiRegistryWrapper\WmiRegistryWrapper.csproj", "{C5CF2D15-B783-4188-9EB7-01C2E125FB42}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WmiRegistryWrapper.Tests", "WmiRegistryWrapper.Tests\WmiRegistryWrapper.Tests.csproj", "{AF605A91-3CC0-4C37-A3BA-67F56775F111}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C5CF2D15-B783-4188-9EB7-01C2E125FB42}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C5CF2D15-B783-4188-9EB7-01C2E125FB42}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C5CF2D15-B783-4188-9EB7-01C2E125FB42}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C5CF2D15-B783-4188-9EB7-01C2E125FB42}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AF605A91-3CC0-4C37-A3BA-67F56775F111}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AF605A91-3CC0-4C37-A3BA-67F56775F111}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AF605A91-3CC0-4C37-A3BA-67F56775F111}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AF605A91-3CC0-4C37-A3BA-67F56775F111}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
