@@ -1,10 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net5.0</TargetFramework>
+        <TargetFramework>net5.0-windows</TargetFramework>
         <Nullable>enable</Nullable>
         <Authors>Ilya Svirin</Authors>
         <Copyright>Iluha's property</Copyright>
+        <PackageProjectUrl>https://github.com/Svilsa/WmiRegistryWrapper</PackageProjectUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <Description>
+            This client library contains methods that manipulate system registry keys and values using Windows WMI
+        </Description>
+        <PackageTags>Microsoft Registry;Registry;WMI</PackageTags>
         <Version>0.5.0</Version>
     </PropertyGroup>
 

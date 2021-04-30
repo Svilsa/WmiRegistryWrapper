@@ -36,7 +36,7 @@ namespace WmiRegistryWrapper
     }
 
     /// <summary>
-    ///     Wrapper for accessing the Windows Registry.
+    ///     Wrapper for accessing the Windows Registry by WMI.
     /// </summary>
     public class WmiRegistry
     {
