@@ -6,7 +6,7 @@ using System.Management;
 namespace WmiRegistryWrapper
 {
     /// <summary>
-    /// Enum for determining the root key of the registry.
+    ///     Enum for determining the root key of the registry.
     /// </summary>
     public enum RegistryHive : uint
     {
@@ -36,12 +36,12 @@ namespace WmiRegistryWrapper
     }
 
     /// <summary>
-    /// Wrapper for accessing the Windows Registry.
+    ///     Wrapper for accessing the Windows Registry.
     /// </summary>
     public class WmiRegistry
     {
         /// <summary>
-        /// Constructor to create a connection to the local registry.
+        ///     Constructor to create a connection to the local registry.
         /// </summary>
         public WmiRegistry()
         {
@@ -50,7 +50,7 @@ namespace WmiRegistryWrapper
         }
 
         /// <summary>
-        /// Constructor to create a connection to the remote registry.
+        ///     Constructor to create a connection to the remote registry.
         /// </summary>
         /// <param name="ipOrMachineName">Local IP or Windows Machine Name inside Workgroup.</param>
         /// <param name="user">Windows User Name.</param>
@@ -65,10 +65,12 @@ namespace WmiRegistryWrapper
         }
 
         /// <summary>
-        /// Gets a value indicating whether the WmiRegistry is currently bound to a WMI server.
+        ///     Gets a value indicating whether the WmiRegistry is currently bound to a WMI server.
         /// </summary>
-        /// <returns>Returns a Boolean value indicating whether the WmiRegistry is currently bound
-        /// to a WMI server.</returns>
+        /// <returns>
+        ///     Returns a Boolean value indicating whether the WmiRegistry is currently bound
+        ///     to a WMI server.
+        /// </returns>
         public bool IsConnected => Scope.IsConnected;
 
         private ConnectionOptions Options { get; } = new()
@@ -83,114 +85,142 @@ namespace WmiRegistryWrapper
         private ManagementClass Registry { get; }
 
         /// <summary>
-        /// Connects this WmiRegistry to the actual WMI.
+        ///     Connects this WmiRegistry to the actual WMI.
         /// </summary>
-        public void Connect() => Scope.Connect();
-        
+        public void Connect()
+        {
+            Scope.Connect();
+        }
+
         // TODO: CheckAccess method must be here
 
         /// <summary>
-        /// Deletes a SubKey in the specified tree.
+        ///     Deletes a SubKey in the specified tree.
         /// </summary>
         /// <param name="registryHive">A registry tree, also known as a hive, that contains the SubKey path.</param>
         /// <param name="subKeyPath">The key to be deleted.</param>
         /// <returns>True if operation was successful, False if not.</returns>
-        public bool TryDeleteSubKey(RegistryHive registryHive, string subKeyPath) =>
-            (uint)TryExecuteCommand(registryHive, subKeyPath, RegCommand.DeleteKey).GetPropertyValue("ReturnValue") == 0;
+        public bool TryDeleteSubKey(RegistryHive registryHive, string subKeyPath)
+        {
+            return (uint) ExecuteCommand(registryHive, subKeyPath, RegCommand.DeleteKey)
+                .GetPropertyValue("ReturnValue") == 0;
+        }
 
         /// <summary>
-        /// Creates a SubKey in the specified tree.
-        /// This method creates all SubKeys specified in the path that do not exist.
+        ///     Creates a SubKey in the specified tree.
+        ///     This method creates all SubKeys specified in the path that do not exist.
         /// </summary>
         /// <param name="registryHive">A registry tree, also known as a hive, that contains the SubKey path.</param>
         /// <param name="subKeyPath">The key(s) to be created.</param>
         /// <returns>True if operation was successful, False if not.</returns>
-        public bool TryCreateSubKey(RegistryHive registryHive, string subKeyPath) =>
-            (uint)TryExecuteCommand(registryHive, subKeyPath, RegCommand.CreateKey).GetPropertyValue("ReturnValue") == 0;
+        public bool TryCreateSubKey(RegistryHive registryHive, string subKeyPath)
+        {
+            return (uint) ExecuteCommand(registryHive, subKeyPath, RegCommand.CreateKey)
+                .GetPropertyValue("ReturnValue") == 0;
+        }
 
         /// <summary>
-        /// Enumerates the SubKeys for a path.
+        ///     Enumerates the SubKeys for a path.
         /// </summary>
         /// <param name="registryHive">A registry tree, also known as a hive, that contains the SubKey path.</param>
         /// <param name="subKeyPath">A path that contains the SubKeys to be enumerated.</param>
         /// <returns>An IEnumerable of SubKey strings</returns>
-        public IEnumerable<string>? EnumerateSubKeys(RegistryHive registryHive, string subKeyPath) =>
-            (IEnumerable<string>?) TryExecuteCommand(registryHive, subKeyPath, RegCommand.EnumKey)
+        public IEnumerable<string>? EnumerateSubKeys(RegistryHive registryHive, string subKeyPath)
+        {
+            return (IEnumerable<string>?) ExecuteCommand(registryHive, subKeyPath, RegCommand.EnumKey)
                 .GetPropertyValue("sNames");
+        }
 
         // TODO: EnumerateValueNames must be here
 
         /// <summary>
-        /// Method returns the data value for a named value whose data type is REG_BINARY.
+        ///     Method returns the data value for a named value whose data type is REG_BINARY.
         /// </summary>
         /// <param name="registryHive">A registry tree, also known as a hive, that contains the SubKey path.</param>
         /// <param name="subKeyPath">A path that contains the named values.</param>
-        /// <param name="valueName">A named value whose data value you are retrieving.
-        /// Specify an empty string to get the default named value.</param>
+        /// <param name="valueName">
+        ///     A named value whose data value you are retrieving.
+        ///     Specify an empty string to get the default named value.
+        /// </param>
         /// <returns>An IEnumerable of binary bytes.</returns>
-        public IEnumerable<byte>? GetBinaryValue(RegistryHive registryHive, string subKeyPath, string valueName) =>
-            (IEnumerable<byte>?) GetValueCommand(registryHive, subKeyPath, valueName, RegValueType.BINARY)
+        public IEnumerable<byte>? GetBinaryValue(RegistryHive registryHive, string subKeyPath, string valueName)
+        {
+            return (IEnumerable<byte>?) GetValueCommand(registryHive, subKeyPath, valueName, RegValueType.BINARY)
                 .GetPropertyValue("uValue");
+        }
 
         /// <summary>
-        /// Method returns the data value for a named value whose data type is REG_SZ.
+        ///     Method returns the data value for a named value whose data type is REG_SZ.
         /// </summary>
         /// <param name="registryHive">A registry tree, also known as a hive, that contains the SubKey path.</param>
         /// <param name="subKeyPath">A path that contains the named values.</param>
-        /// <param name="valueName">A named value whose data value you are retrieving.
-        /// Specify an empty string to get the default named value.</param>
+        /// <param name="valueName">
+        ///     A named value whose data value you are retrieving.
+        ///     Specify an empty string to get the default named value.
+        /// </param>
         /// <returns>A data value for the named value.</returns>
-        public string? GetStringValue(RegistryHive registryHive, string subKeyPath, string valueName) =>
-            GetValueCommand(registryHive, subKeyPath, valueName, RegValueType.STRING).GetPropertyValue("sValue")
+        public string? GetStringValue(RegistryHive registryHive, string subKeyPath, string valueName)
+        {
+            return GetValueCommand(registryHive, subKeyPath, valueName, RegValueType.STRING).GetPropertyValue("sValue")
                 ?.ToString();
-        
+        }
+
         // TODO: Here must be methods to retrieve the rest reg data types
 
         /// <summary>
-        /// Method sets the data value for a named value whose data type is REG_BINARY.
+        ///     Method sets the data value for a named value whose data type is REG_BINARY.
         /// </summary>
         /// <param name="registryHive">A registry tree, also known as a hive, that contains the SubKey path.</param>
         /// <param name="subKeyPath">A key that contains the named value to be set.</param>
-        /// <param name="valueName">A named value whose data value you are setting.
-        /// You can specify an existing named value (update) or a new named value (create).
-        /// Specify an empty string to set the data value for the default named value.</param>
+        /// <param name="valueName">
+        ///     A named value whose data value you are setting.
+        ///     You can specify an existing named value (update) or a new named value (create).
+        ///     Specify an empty string to set the data value for the default named value.
+        /// </param>
         /// <param name="value">An IEnumerable of binary data values. The default value is [1,2].</param>
         /// <returns>True if operation was successful, False if not.</returns>
-        public bool TrySetValue(RegistryHive registryHive, string subKeyPath, string valueName, IEnumerable<byte> value) =>
-            (uint)SetValueCommand(registryHive, subKeyPath, valueName, value, RegValueType.BINARY).GetPropertyValue("ReturnValue") == 0;
-        
+        public bool TrySetValue(RegistryHive registryHive, string subKeyPath, string valueName, IEnumerable<byte> value)
+        {
+            return (uint) SetValueCommand(registryHive, subKeyPath, valueName, value, RegValueType.BINARY)
+                .GetPropertyValue("ReturnValue") == 0;
+        }
+
         /// <summary>
-        /// Method sets the data value for a named value whose data type is REG_SZ.
+        ///     Method sets the data value for a named value whose data type is REG_SZ.
         /// </summary>
         /// <param name="registryHive">A registry tree, also known as a hive, that contains the SubKey path.</param>
         /// <param name="subKeyPath">A key that contains the named value to be set.</param>
-        /// <param name="valueName">A named value whose data value you are setting.
-        /// You can specify an existing named value (update) or a new named value (create).
-        /// Specify an empty string to set the data value for the default named value.</param>
+        /// <param name="valueName">
+        ///     A named value whose data value you are setting.
+        ///     You can specify an existing named value (update) or a new named value (create).
+        ///     Specify an empty string to set the data value for the default named value.
+        /// </param>
         /// <param name="value">A string to be set in a named value</param>
         /// <returns>True if operation was successful, False if not.</returns>
-        public bool TrySetValue(RegistryHive registryHive, string subKeyPath, string valueName, string value) =>
-            (uint)SetValueCommand(registryHive, subKeyPath, valueName, value, RegValueType.STRING).GetPropertyValue("ReturnValue") == 0;
-        
+        public bool TrySetValue(RegistryHive registryHive, string subKeyPath, string valueName, string value)
+        {
+            return (uint) SetValueCommand(registryHive, subKeyPath, valueName, value, RegValueType.STRING)
+                .GetPropertyValue("ReturnValue") == 0;
+        }
+
         // TODO: Here must be methods to set the rest reg data types
 
-        private ManagementBaseObject TryExecuteCommand(RegistryHive registryHive, string subKeyPath, RegCommand regCommand)
+        private ManagementBaseObject ExecuteCommand(RegistryHive registryHive, string subKeyPath, RegCommand regCommand)
         {
-            if (!IsConnected) throw new Exception("The registry is not connected");
-            var methodName = regCommand.ToString();
 
+            var methodName = regCommand.ToString();
             var methodParams = Registry.GetMethodParameters(methodName);
 
             methodParams["hDefKey"] = registryHive;
             methodParams["sSubKeyName"] = subKeyPath;
 
-            return Registry.InvokeMethod(methodName, methodParams, new InvokeMethodOptions()) ?? throw new InvalidOperationException();
+            return Registry.InvokeMethod(methodName, methodParams, new InvokeMethodOptions()) ??
+                   throw new InvalidOperationException();
         }
-        
+
         private ManagementBaseObject GetValueCommand(RegistryHive registryHive, string subKeyPath,
             string valueName, RegValueType regValueType)
         {
-            if (!IsConnected) throw new Exception("The registry is not connected");
 
             var methodName = ConvertGetValueType(regValueType);
             var methodParams = Registry.GetMethodParameters(methodName);
@@ -199,14 +229,14 @@ namespace WmiRegistryWrapper
             methodParams["sSubKeyName"] = subKeyPath;
             methodParams["sValueName"] = valueName;
 
-            return Registry.InvokeMethod(methodName, methodParams, new InvokeMethodOptions()) ?? throw new InvalidOperationException();
+            return Registry.InvokeMethod(methodName, methodParams, new InvokeMethodOptions()) ??
+                   throw new InvalidOperationException();
         }
-        
+
         private ManagementBaseObject SetValueCommand(RegistryHive registryHive, string subKeyPath,
             string valueName, object value, RegValueType regValueType)
         {
-            if (!IsConnected) throw new Exception("The registry is not connected");
-
+            
             var methodName = ConvertSetValueType(regValueType);
             var methodParams = Registry.GetMethodParameters(methodName);
 
@@ -233,10 +263,11 @@ namespace WmiRegistryWrapper
                 default:
                     throw new ArgumentOutOfRangeException(nameof(regValueType), regValueType, null);
             }
-            
-            return Registry.InvokeMethod(methodName, methodParams, new InvokeMethodOptions()) ?? throw new InvalidOperationException();
+
+            return Registry.InvokeMethod(methodName, methodParams, new InvokeMethodOptions()) ??
+                   throw new InvalidOperationException();
         }
-        
+
         private static string ConvertGetValueType(RegValueType entry)
         {
             return entry switch
