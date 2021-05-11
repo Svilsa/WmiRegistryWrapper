@@ -6,6 +6,7 @@
         <Authors>Ilya Svirin</Authors>
         <Copyright>Iluha's property</Copyright>
         <PackageProjectUrl>https://github.com/Svilsa/WmiRegistryWrapper</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/Svilsa/WmiRegistryWrapper.git</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <Description>

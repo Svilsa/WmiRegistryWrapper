@@ -1,16 +1,35 @@
+using System;
 using Microsoft.Win32;
 using System.Linq;
 using Xunit;
 
 namespace WmiRegistryWrapper.Tests
 {
-    public class WmiRegistryTests
+    public class WmiRegistryTests : IDisposable
     {
         private readonly WmiRegistry _localRegistry = new();
+        private readonly string _regPath = "SOFTWARE";
+        private readonly string _reqTestSubKey = "WmiRegistryTests";
+
+        private string GetFullTestRegPath => _regPath + "\\" + _reqTestSubKey;
 
         public WmiRegistryTests()
         {
             _localRegistry.Connect();
+
+            var beforeTestingSubKeys =
+                Registry.CurrentUser.OpenSubKey(_regPath)!.GetSubKeyNames();
+            if (beforeTestingSubKeys.Contains(_reqTestSubKey))
+                Registry.CurrentUser.OpenSubKey(_regPath, true)!.DeleteSubKeyTree(_reqTestSubKey);
+
+            Registry.CurrentUser.OpenSubKey(_regPath, true)!.CreateSubKey(
+                _reqTestSubKey);
+        }
+
+        public void Dispose()
+        {
+            Registry.CurrentUser.OpenSubKey(_regPath, true)!.DeleteSubKeyTree(_reqTestSubKey);
+            GC.SuppressFinalize(this);
         }
 
         #region Commands
@@ -18,8 +37,8 @@ namespace WmiRegistryWrapper.Tests
         [Fact]
         public void EnumerateSubKeysTest()
         {
-            var subKeysCount = Registry.LocalMachine.OpenSubKey("SOFTWARE")!.SubKeyCount;
-            var subKeys = _localRegistry.EnumerateSubKeys(RegistryHive.LocalMachine, "SOFTWARE");
+            var subKeysCount = Registry.CurrentUser.OpenSubKey(_regPath)!.SubKeyCount;
+            var subKeys = _localRegistry.EnumerateSubKeys(RegistryHive.CurrentUser, _regPath);
 
             Assert.Equal(subKeysCount, subKeys?.Count());
         }
@@ -27,98 +46,106 @@ namespace WmiRegistryWrapper.Tests
         [Fact]
         public void CreateSubKeysTest()
         {
-            var beforeCreatingSubKeys =
-                Registry.LocalMachine.OpenSubKey("SOFTWARE")!.GetSubKeyNames();
-            if (beforeCreatingSubKeys.Contains("WmiRegistryTests"))
-                Registry.LocalMachine.OpenSubKey("SOFTWARE", true)!.DeleteSubKey(
-                    "WmiRegistryTests");
+            const string testCreatingSubKey = "TestCreatingSubKey";
+            const string innerTestCreatingSubKey = "InnerTestCreatingSubKey";
 
             var createSubKeyResult =
-                _localRegistry.TryCreateSubKey(RegistryHive.LocalMachine,
-                    @"SOFTWARE\WmiRegistryTests");
+                _localRegistry.TryCreateSubKey(RegistryHive.CurrentUser,
+                    GetFullTestRegPath
+                    + "\\" + testCreatingSubKey
+                    + "\\" + innerTestCreatingSubKey);
+
+            Assert.True(createSubKeyResult, "SubKey(s) not created");
+
             var afterCreatingSubKeys =
-                Registry.LocalMachine.OpenSubKey("SOFTWARE")!.GetSubKeyNames();
+                Registry.CurrentUser.OpenSubKey(GetFullTestRegPath)!.GetSubKeyNames();
+            var afterCreatingInnerSubKeys =
+                Registry.CurrentUser.OpenSubKey(GetFullTestRegPath + "\\" + testCreatingSubKey.Split('\\')[0])!
+                    .GetSubKeyNames();
 
-            Assert.Contains("WmiRegistryTests", afterCreatingSubKeys);
-            Assert.True(createSubKeyResult);
-
-            Registry.LocalMachine.OpenSubKey("SOFTWARE", true)!.DeleteSubKey(
-                "WmiRegistryTests");
+            Assert.Contains(testCreatingSubKey, afterCreatingSubKeys);
+            Assert.Contains(innerTestCreatingSubKey, afterCreatingInnerSubKeys);
         }
 
         [Fact]
         public void DeleteSubKeysTest()
         {
-            var beforeDeletingSubKeys =
-                Registry.LocalMachine.OpenSubKey("SOFTWARE")!.GetSubKeyNames();
-            if (!beforeDeletingSubKeys.Contains("WmiRegistryTests"))
-                Registry.LocalMachine.OpenSubKey("SOFTWARE", true)!.CreateSubKey(
-                    "WmiRegistryTests");
+            const string testDeletingSubKey = "TestDeletingSubKey";
+            Registry.CurrentUser.OpenSubKey(GetFullTestRegPath, true)!.CreateSubKey(testDeletingSubKey);
 
             var deleteSubKeyResult =
-                _localRegistry.TryDeleteSubKey(RegistryHive.LocalMachine,
-                    @"SOFTWARE\WmiRegistryTests");
-            var afterDeletingSubKeys =
-                Registry.LocalMachine.OpenSubKey("SOFTWARE")!.GetSubKeyNames();
+                _localRegistry.TryDeleteSubKey(RegistryHive.CurrentUser,
+                    GetFullTestRegPath + "\\" + testDeletingSubKey);
 
-            Assert.DoesNotContain("WmiRegistryTests", afterDeletingSubKeys);
             Assert.True(deleteSubKeyResult);
 
-            if (afterDeletingSubKeys.Contains("WmiRegistryTests"))
-                Registry.LocalMachine.OpenSubKey("SOFTWARE", true)!.DeleteSubKey(
-                    "WmiRegistryTests");
+            var afterDeletingSubKeys =
+                Registry.CurrentUser.OpenSubKey(GetFullTestRegPath)!.GetSubKeyNames();
+
+            Assert.DoesNotContain(testDeletingSubKey, afterDeletingSubKeys);
         }
 
         #endregion
-
 
         #region Setters
 
         [Fact]
         public void SetStringValueTest()
         {
+            const string testSetStringSubKey = "TestSetStringSubKey";
             const string valueName = "TestStringValueName";
-            const string value = "TestValue";
+            const string value = "TestStringValue";
+            Registry.CurrentUser.OpenSubKey(GetFullTestRegPath, true)!.CreateSubKey(testSetStringSubKey);
 
-            var subKeyNames =
-                Registry.LocalMachine.OpenSubKey("SOFTWARE")!.GetSubKeyNames();
-            if (!subKeyNames.Contains("WmiRegistryTests"))
-                Registry.LocalMachine.OpenSubKey("SOFTWARE", true)!.CreateSubKey(
-                    "WmiRegistryTests");
+            var setStringValueResult = _localRegistry.TrySetValue(RegistryHive.CurrentUser,
+                GetFullTestRegPath + "\\" + testSetStringSubKey, valueName, value);
 
-
-            var setStringValueResult = _localRegistry.TrySetValue(RegistryHive.LocalMachine,
-                @"SOFTWARE\WmiRegistryTests", valueName, value);
-
-            Assert.Equal(value,
-                Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WmiRegistryTests")!.GetValue(valueName)!.ToString());
             Assert.True(setStringValueResult);
 
-            Registry.LocalMachine.OpenSubKey("SOFTWARE", true)!.DeleteSubKey(
-                "WmiRegistryTests");
+            var afterStringSettingResult =
+                Registry.CurrentUser.OpenSubKey(GetFullTestRegPath + "\\" + testSetStringSubKey)!.GetValue(valueName);
+
+            Assert.Equal(value, afterStringSettingResult);
         }
 
         [Fact]
         public void SetBinaryValueTest()
         {
+            const string testSetBinarySubKey = "TestSetBinarySubKey";
             const string valueName = "TestBinaryValueName";
             byte[] value = {1, 2, 3, 4, 5, 6};
+            Registry.CurrentUser.OpenSubKey(GetFullTestRegPath, true)!.CreateSubKey(testSetBinarySubKey);
 
-            var subKeyNames =
-                Registry.LocalMachine.OpenSubKey("SOFTWARE")!.GetSubKeyNames();
-            if (!subKeyNames.Contains("WmiRegistryTests"))
-                Registry.LocalMachine.OpenSubKey("SOFTWARE", true)!.CreateSubKey(
-                    "WmiRegistryTests");
+            var setBinaryValueResult = _localRegistry.TrySetValue(RegistryHive.CurrentUser,
+                GetFullTestRegPath + "\\" + testSetBinarySubKey, valueName, value);
 
-            var setStringValueResult = _localRegistry.TrySetValue(RegistryHive.LocalMachine,
-                @"SOFTWARE\WmiRegistryTests", valueName, value);
+            Assert.True(setBinaryValueResult);
 
-            Assert.Equal(value,
-                Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WmiRegistryTests")!.GetValue(valueName));
-            Assert.True(setStringValueResult);
+            var afterBinarySettingResult =
+                Registry.CurrentUser.OpenSubKey(GetFullTestRegPath + "\\" + testSetBinarySubKey)!.GetValue(valueName);
 
-            Registry.LocalMachine.OpenSubKey("SOFTWARE", true)!.DeleteSubKey(
-                "WmiRegistryTests");
+            Assert.Equal(value, afterBinarySettingResult);
+        }
+
+        [Fact]
+        public void SetDWordValueTest()
+        {
+            const string testSetDWordSubKeys = "TestSetDWORDSubKey";
+            const string valueName = "TestDWORDValueName";
+            const uint value = 12345;
+            Registry.CurrentUser.OpenSubKey(GetFullTestRegPath, true)!.CreateSubKey(testSetDWordSubKeys);
+
+            var setDWordValueResult = _localRegistry.TrySetValue(RegistryHive.CurrentUser,
+                GetFullTestRegPath + "\\" + testSetDWordSubKeys, valueName, value);
+
+            Assert.True(setDWordValueResult);
+
+            var afterDWordSettingResult =
+                Convert.ToUInt32(
+                    Registry.CurrentUser.OpenSubKey(GetFullTestRegPath + "\\" + testSetDWordSubKeys)!.GetValue(
+                        valueName));
+
+            Assert.Equal(value, afterDWordSettingResult);
         }
 
         #endregion
@@ -128,53 +155,31 @@ namespace WmiRegistryWrapper.Tests
         [Fact]
         public void GetBinaryValueTest()
         {
+            const string testGetBinarySubKey = "TestGetBinarySubKey";
             const string valueName = "TestBinaryValueName";
             byte[] value = {1, 2, 3, 4, 5, 6};
+            Registry.CurrentUser.OpenSubKey(GetFullTestRegPath, true)!.CreateSubKey(testGetBinarySubKey)
+                .SetValue(valueName, value);
 
-            var subKeyNames =
-                Registry.LocalMachine.OpenSubKey("SOFTWARE")!.GetSubKeyNames();
-            if (!subKeyNames.Contains("WmiRegistryTests"))
-                Registry.LocalMachine.OpenSubKey("SOFTWARE", true)!.CreateSubKey(
-                    "WmiRegistryTests");
-
-            var valueNames =
-                Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WmiRegistryTests")!.GetValueNames();
-            if (!valueNames.Contains(valueName))
-                Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WmiRegistryTests", true)!.SetValue(valueName, value);
-
-            var binaryValueResult = _localRegistry.GetBinaryValue(RegistryHive.LocalMachine,
-                @"SOFTWARE\WmiRegistryTests", valueName);
+            var binaryValueResult = _localRegistry.GetValue(RegistryHive.CurrentUser,
+                GetFullTestRegPath + "\\" + testGetBinarySubKey, valueName, RegistryValueKind.Binary);
 
             Assert.Equal(value, binaryValueResult);
-
-            Registry.LocalMachine.OpenSubKey("SOFTWARE", true)!.DeleteSubKey(
-                "WmiRegistryTests");
         }
 
         [Fact]
         public void GetStringValueTest()
         {
-            const string valueName = "TestBinaryValueName";
-            const string value = "TestValue";
+            const string testGetStringSubKey = "TestGetStringSubKey";
+            const string valueName = "TestStringValueName";
+            const string value = "StringValue";
+            Registry.CurrentUser.OpenSubKey(GetFullTestRegPath, true)!.CreateSubKey(testGetStringSubKey)
+                .SetValue(valueName, value);
 
-            var subKeyNames =
-                Registry.LocalMachine.OpenSubKey("SOFTWARE")!.GetSubKeyNames();
-            if (!subKeyNames.Contains("WmiRegistryTests"))
-                Registry.LocalMachine.OpenSubKey("SOFTWARE", true)!.CreateSubKey(
-                    "WmiRegistryTests");
-
-            var valueNames =
-                Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WmiRegistryTests")!.GetValueNames();
-            if (!valueNames.Contains(valueName))
-                Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WmiRegistryTests", true)!.SetValue(valueName, value);
-
-            var stringValueResult = _localRegistry.GetStringValue(RegistryHive.LocalMachine,
-                @"SOFTWARE\WmiRegistryTests", valueName);
+            var stringValueResult = _localRegistry.GetValue(RegistryHive.CurrentUser,
+                GetFullTestRegPath + "\\" + testGetStringSubKey, valueName, RegistryValueKind.String);
 
             Assert.Equal(value, stringValueResult);
-
-            Registry.LocalMachine.OpenSubKey("SOFTWARE", true)!.DeleteSubKey(
-                "WmiRegistryTests");
         }
 
         #endregion
