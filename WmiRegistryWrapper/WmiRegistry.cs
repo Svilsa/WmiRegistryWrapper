@@ -5,40 +5,6 @@ using System.Management;
 namespace WmiRegistryWrapper
 {
     /// <summary>
-    ///     Enum for determining the root key of the registry.
-    /// </summary>
-    public enum RegistryHive : uint
-    {
-        ClassesRoot = 0x80000000,
-        CurrentUser = 0x80000001,
-        LocalMachine = 0x80000002,
-        Users = 0x80000003,
-        CurrentConfig = 0x80000005
-    }
-
-    /// <summary>
-    ///     Specifies the data types to use when storing values in the registry,
-    ///     or identifies the data type of a value in the registry.
-    /// </summary>    
-    public enum RegistryValueType
-    {
-        DWord,
-        QWord,
-        Binary,
-        String,
-        ExpandedString,
-        MultiString
-    }
-
-    internal enum RegCommand
-    {
-        EnumKey,
-        EnumValues,
-        DeleteKey,
-        CreateKey
-    }
-
-    /// <summary>
     ///     Wrapper for accessing the Windows Registry by WMI.
     /// </summary>
     public class WmiRegistry
@@ -95,7 +61,18 @@ namespace WmiRegistryWrapper
             Scope.Connect();
         }
 
-        // TODO: CheckAccess method must be here
+        /// <summary>
+        ///     Verifies that the user has the specified permissions.
+        /// </summary>
+        /// <param name="registryHive">A registry tree, also known as a hive, that contains the SubKey path.</param>
+        /// <param name="subKeyPath">The key to be deleted.</param>
+        /// <param name="accessPermissions"></param>
+        /// <returns>True if the operation was successful, False if not.</returns>
+        public bool CheckAccess(RegistryHive registryHive, string subKeyPath, AccessPermissions accessPermissions)
+        {
+            return (bool) ExecuteCommand(registryHive, subKeyPath, RegCommand.CheckAccess, (uint) accessPermissions)
+                .GetPropertyValue("bGranted");
+        }
 
         /// <summary>
         ///     Deletes a SubKey in the specified tree.
@@ -134,7 +111,33 @@ namespace WmiRegistryWrapper
                 .GetPropertyValue("sNames");
         }
 
-        // TODO: EnumerateValueNames must be here
+        public IEnumerable<RegEntity> EnumerateValueNames(RegistryHive registryHive, string subKeyPath)
+        {
+            var executeResult = ExecuteCommand(registryHive, subKeyPath, RegCommand.EnumValues);
+
+            var valueNames = (string[]) executeResult.GetPropertyValue("sNames");
+            var valueTypes = (int[]) executeResult.GetPropertyValue("Types");
+
+            var resultList = new List<RegEntity>(valueNames.Length);
+
+            for (var i = 0; i < valueNames.Length; i++)
+            {
+                var registryValueType = valueTypes[i] switch
+                {
+                    1 => RegistryValueType.String,
+                    2 => RegistryValueType.ExpandedString,
+                    3 => RegistryValueType.Binary,
+                    4 => RegistryValueType.DWord,
+                    7 => RegistryValueType.MultiString,
+                    11 => RegistryValueType.QWord,
+                    _ => RegistryValueType.String
+                };
+
+                resultList.Add(new RegEntity(valueNames[i], registryValueType));
+            }
+
+            return resultList;
+        }
 
         /// <summary>
         ///     Retrieves the value associated with the specified name.
@@ -157,9 +160,11 @@ namespace WmiRegistryWrapper
                     .GetPropertyValue("uValue"),
                 RegistryValueType.QWord => GetValueCommand(registryHive, subKeyPath, valueName, RegistryValueType.QWord)
                     .GetPropertyValue("uValue"),
-                RegistryValueType.Binary => GetValueCommand(registryHive, subKeyPath, valueName, RegistryValueType.Binary)
+                RegistryValueType.Binary => GetValueCommand(registryHive, subKeyPath, valueName,
+                        RegistryValueType.Binary)
                     .GetPropertyValue("uValue"),
-                RegistryValueType.String => GetValueCommand(registryHive, subKeyPath, valueName, RegistryValueType.String)
+                RegistryValueType.String => GetValueCommand(registryHive, subKeyPath, valueName,
+                        RegistryValueType.String)
                     .GetPropertyValue("sValue"),
                 RegistryValueType.ExpandedString => GetValueCommand(registryHive, subKeyPath, valueName,
                         RegistryValueType.ExpandedString)
@@ -170,8 +175,6 @@ namespace WmiRegistryWrapper
                 _ => throw new ArgumentOutOfRangeException(nameof(registryValueType), registryValueType, null)
             };
         }
-
-        // TODO: Here must be methods to retrieve the rest reg data types
 
         /// <summary>
         ///     Method sets the data value for a named value whose data type is <b>REG_BINARY</b>.
@@ -206,9 +209,10 @@ namespace WmiRegistryWrapper
         public bool TrySetValue(RegistryHive registryHive, string subKeyPath, string valueName, string value)
         {
             if (IsExpandedString(value))
-                return (uint) SetValueCommand(registryHive, subKeyPath, valueName, value, RegistryValueType.ExpandedString)
+                return (uint) SetValueCommand(registryHive, subKeyPath, valueName, value,
+                        RegistryValueType.ExpandedString)
                     .GetPropertyValue("ReturnValue") == 0;
-            
+
             return (uint) SetValueCommand(registryHive, subKeyPath, valueName, value, RegistryValueType.String)
                 .GetPropertyValue("ReturnValue") == 0;
         }
@@ -230,7 +234,7 @@ namespace WmiRegistryWrapper
             return (uint) SetValueCommand(registryHive, subKeyPath, valueName, value, RegistryValueType.DWord)
                 .GetPropertyValue("ReturnValue") == 0;
         }
-        
+
         /// <summary>
         ///     Method sets the data value for a named value whose data type is <b>REG_QWORD</b>.
         /// </summary>
@@ -248,7 +252,7 @@ namespace WmiRegistryWrapper
             return (uint) SetValueCommand(registryHive, subKeyPath, valueName, value, RegistryValueType.QWord)
                 .GetPropertyValue("ReturnValue") == 0;
         }
-        
+
         /// <summary>
         ///     Method sets the data value for a named value whose data type is <b>REG_MULTI_SZ</b>.
         /// </summary>
@@ -261,21 +265,23 @@ namespace WmiRegistryWrapper
         /// </param>
         /// <param name="value">An array of string data values.</param>
         /// <returns>True if the operation was successful, False if not.</returns>
-        public bool TrySetValue(RegistryHive registryHive, string subKeyPath, string valueName, IEnumerable<string> value)
+        public bool TrySetValue(RegistryHive registryHive, string subKeyPath, string valueName,
+            IEnumerable<string> value)
         {
             return (uint) SetValueCommand(registryHive, subKeyPath, valueName, value, RegistryValueType.MultiString)
                 .GetPropertyValue("ReturnValue") == 0;
         }
 
-        // TODO: Here must be methods to set the rest reg data types
-
-        private ManagementBaseObject ExecuteCommand(RegistryHive registryHive, string subKeyPath, RegCommand regCommand)
+        private ManagementBaseObject ExecuteCommand(RegistryHive registryHive, string subKeyPath, RegCommand regCommand,
+            uint required = 0)
         {
             var methodName = regCommand.ToString();
             var methodParams = Registry.GetMethodParameters(methodName);
 
             methodParams["hDefKey"] = registryHive;
             methodParams["sSubKeyName"] = subKeyPath;
+            // This is a workaround for CheckAccess method
+            if (required != 0) methodParams["uRequired"] = required;
 
             return Registry.InvokeMethod(methodName, methodParams, new InvokeMethodOptions()) ??
                    throw new InvalidOperationException();
