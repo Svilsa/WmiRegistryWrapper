@@ -13,7 +13,7 @@
             This client library contains methods that manipulate system registry keys and values using Windows WMI
         </Description>
         <PackageTags>Microsoft Registry;Registry;WMI</PackageTags>
-        <Version>0.5.0</Version>
+        <Version>0.8.0</Version>
     </PropertyGroup>
 
     <ItemGroup>
