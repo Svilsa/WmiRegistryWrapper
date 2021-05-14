@@ -88,7 +88,7 @@ namespace WmiRegistryWrapper.Tests
         #endregion
 
         #region Setters
-
+        
         [Fact]
         public void SetStringValueTest()
         {
@@ -104,6 +104,44 @@ namespace WmiRegistryWrapper.Tests
 
             var afterStringSettingResult =
                 Registry.CurrentUser.OpenSubKey(GetFullTestRegPath + "\\" + testSetStringSubKey)!.GetValue(valueName);
+
+            Assert.Equal(value, afterStringSettingResult);
+        }
+        
+        [Fact]
+        public void SetExpandedStringValueTest()
+        {
+            const string testSetExpandedStringSubKey = "TestSetExpandedStringSubKey";
+            const string valueName = "TestExpandedStringValueName";
+            const string value = "%USERNAME%";
+            Registry.CurrentUser.OpenSubKey(GetFullTestRegPath, true)!.CreateSubKey(testSetExpandedStringSubKey);
+
+            var setStringValueResult = _localRegistry.TrySetValue(RegistryHive.CurrentUser,
+                GetFullTestRegPath + "\\" + testSetExpandedStringSubKey, valueName, value);
+
+            Assert.True(setStringValueResult);
+
+            var afterStringSettingResult =
+                Registry.CurrentUser.OpenSubKey(GetFullTestRegPath + "\\" + testSetExpandedStringSubKey)!.GetValue(valueName);
+
+            Assert.Equal(Environment.UserName, afterStringSettingResult);
+        }
+        
+        [Fact]
+        public void SetMultiStringValueTest()
+        {
+            const string testSetMultiStringSubKey = "TestSetMultiStringSubKey";
+            const string valueName = "TestStringValueName";
+            string[] value = {"TestStringValue1", "TestStringValue2"};
+            Registry.CurrentUser.OpenSubKey(GetFullTestRegPath, true)!.CreateSubKey(testSetMultiStringSubKey);
+
+            var setStringValueResult = _localRegistry.TrySetValue(RegistryHive.CurrentUser,
+                GetFullTestRegPath + "\\" + testSetMultiStringSubKey, valueName, value);
+
+            Assert.True(setStringValueResult);
+
+            var afterStringSettingResult =
+                Registry.CurrentUser.OpenSubKey(GetFullTestRegPath + "\\" + testSetMultiStringSubKey)!.GetValue(valueName);
 
             Assert.Equal(value, afterStringSettingResult);
         }
@@ -132,7 +170,7 @@ namespace WmiRegistryWrapper.Tests
         {
             const string testSetDWordSubKeys = "TestSetDWORDSubKey";
             const string valueName = "TestDWORDValueName";
-            const uint value = 12345;
+            const uint value = int.MaxValue;
             Registry.CurrentUser.OpenSubKey(GetFullTestRegPath, true)!.CreateSubKey(testSetDWordSubKeys);
 
             var setDWordValueResult = _localRegistry.TrySetValue(RegistryHive.CurrentUser,
@@ -141,31 +179,35 @@ namespace WmiRegistryWrapper.Tests
             Assert.True(setDWordValueResult);
 
             var afterDWordSettingResult =
-                Convert.ToUInt32(
-                    Registry.CurrentUser.OpenSubKey(GetFullTestRegPath + "\\" + testSetDWordSubKeys)!.GetValue(
-                        valueName));
+                Registry.CurrentUser.OpenSubKey(GetFullTestRegPath + "\\" + testSetDWordSubKeys)!.GetValue(
+                    valueName);
 
-            Assert.Equal(value, afterDWordSettingResult);
+            Assert.Equal(value, Convert.ToUInt32(afterDWordSettingResult));
+        }
+        
+        [Fact]
+        public void SetQWordValueTest()
+        {
+            const string testSetQWordSubKeys = "TestSetQWORDSubKey";
+            const string valueName = "TestQWORDValueName";
+            const ulong value = long.MaxValue;
+            Registry.CurrentUser.OpenSubKey(GetFullTestRegPath, true)!.CreateSubKey(testSetQWordSubKeys);
+
+            var setDWordValueResult = _localRegistry.TrySetValue(RegistryHive.CurrentUser,
+                GetFullTestRegPath + "\\" + testSetQWordSubKeys, valueName, value);
+
+            Assert.True(setDWordValueResult);
+
+            var afterDWordSettingResult =
+                Registry.CurrentUser.OpenSubKey(GetFullTestRegPath + "\\" + testSetQWordSubKeys)!.GetValue(
+                    valueName);
+
+            Assert.Equal(value, Convert.ToUInt64(afterDWordSettingResult));
         }
 
         #endregion
 
         #region Getters
-
-        [Fact]
-        public void GetBinaryValueTest()
-        {
-            const string testGetBinarySubKey = "TestGetBinarySubKey";
-            const string valueName = "TestBinaryValueName";
-            byte[] value = {1, 2, 3, 4, 5, 6};
-            Registry.CurrentUser.OpenSubKey(GetFullTestRegPath, true)!.CreateSubKey(testGetBinarySubKey)
-                .SetValue(valueName, value);
-
-            var binaryValueResult = _localRegistry.GetValue(RegistryHive.CurrentUser,
-                GetFullTestRegPath + "\\" + testGetBinarySubKey, valueName, RegistryValueKind.Binary);
-
-            Assert.Equal(value, binaryValueResult);
-        }
 
         [Fact]
         public void GetStringValueTest()
@@ -177,9 +219,84 @@ namespace WmiRegistryWrapper.Tests
                 .SetValue(valueName, value);
 
             var stringValueResult = _localRegistry.GetValue(RegistryHive.CurrentUser,
-                GetFullTestRegPath + "\\" + testGetStringSubKey, valueName, RegistryValueKind.String);
+                GetFullTestRegPath + "\\" + testGetStringSubKey, valueName, RegistryValueType.String);
 
             Assert.Equal(value, stringValueResult);
+        }
+        
+        [Fact]
+        public void GetExpandedStringValueTest()
+        {
+            const string testGetExpandedStringSubKey = "TestGetExpandedStringSubKey";
+            const string valueName = "TestExpandedStringValueName";
+            const string value = "%NUMBER_OF_PROCESSORS%";
+            Registry.CurrentUser.OpenSubKey(GetFullTestRegPath, true)!.CreateSubKey(testGetExpandedStringSubKey)
+                .SetValue(valueName, value, RegistryValueKind.ExpandString);
+
+            var stringValueResult = _localRegistry.GetValue(RegistryHive.CurrentUser,
+                GetFullTestRegPath + "\\" + testGetExpandedStringSubKey, valueName, RegistryValueType.ExpandedString);
+            
+            Assert.Equal(Environment.ProcessorCount, Convert.ToInt32(stringValueResult));
+        }
+        
+        [Fact]
+        public void GetMultiStringValueTest()
+        {
+            const string testGetMultiStringSubKey = "TestGetMultiStringSubKey";
+            const string valueName = "TestMultiStringValueName";
+            string[] value = {"StringValue", "StringValue2"};
+            Registry.CurrentUser.OpenSubKey(GetFullTestRegPath, true)!.CreateSubKey(testGetMultiStringSubKey)
+                .SetValue(valueName, value);
+
+            var stringValueResult = _localRegistry.GetValue(RegistryHive.CurrentUser,
+                GetFullTestRegPath + "\\" + testGetMultiStringSubKey, valueName, RegistryValueType.MultiString);
+
+            Assert.Equal(value, stringValueResult);
+        }
+        
+        [Fact]
+        public void GetBinaryValueTest()
+        {
+            const string testGetBinarySubKey = "TestGetBinarySubKey";
+            const string valueName = "TestBinaryValueName";
+            byte[] value = {1, 2, 3, 4, 5, 6};
+            Registry.CurrentUser.OpenSubKey(GetFullTestRegPath, true)!.CreateSubKey(testGetBinarySubKey)
+                .SetValue(valueName, value);
+
+            var binaryValueResult = _localRegistry.GetValue(RegistryHive.CurrentUser,
+                GetFullTestRegPath + "\\" + testGetBinarySubKey, valueName, RegistryValueType.Binary);
+
+            Assert.Equal(value, binaryValueResult);
+        }
+        
+        [Fact]
+        public void GetDWordValueTest()
+        {
+            const string testGetDWordSubKey = "TestGetDWordSubKey";
+            const string valueName = "TestDWordValueName";
+            const int value = int.MaxValue;
+            Registry.CurrentUser.OpenSubKey(GetFullTestRegPath, true)!.CreateSubKey(testGetDWordSubKey)
+                .SetValue(valueName, value, RegistryValueKind.DWord);
+
+            var dWordValueResult = _localRegistry.GetValue(RegistryHive.CurrentUser,
+                GetFullTestRegPath + "\\" + testGetDWordSubKey, valueName, RegistryValueType.DWord);
+
+            Assert.Equal(Convert.ToUInt32(value), dWordValueResult);
+        }
+        
+        [Fact]
+        public void GetQWordValueTest()
+        {
+            const string testGetQWordSubKey = "TestGetQWordSubKey";
+            const string valueName = "TestQWordValueName";
+            const long value = long.MaxValue;
+            Registry.CurrentUser.OpenSubKey(GetFullTestRegPath, true)!.CreateSubKey(testGetQWordSubKey)
+                .SetValue(valueName, value, RegistryValueKind.QWord);
+
+            var dWordValueResult = _localRegistry.GetValue(RegistryHive.CurrentUser,
+                GetFullTestRegPath + "\\" + testGetQWordSubKey, valueName, RegistryValueType.QWord);
+
+            Assert.Equal(Convert.ToUInt64(value), dWordValueResult);
         }
 
         #endregion

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Management;
 
 namespace WmiRegistryWrapper
@@ -21,7 +20,7 @@ namespace WmiRegistryWrapper
     ///     Specifies the data types to use when storing values in the registry,
     ///     or identifies the data type of a value in the registry.
     /// </summary>    
-    public enum RegistryValueKind
+    public enum RegistryValueType
     {
         DWord,
         QWord,
@@ -147,35 +146,35 @@ namespace WmiRegistryWrapper
         ///     A named value whose data value you are retrieving.
         ///     Specify an empty string to get the default named value.
         /// </param>
-        /// <param name="registryValueKind"></param>
+        /// <param name="registryValueType"></param>
         /// <returns>The value associated with name, or null if name is not found.</returns>
         public object? GetValue(RegistryHive registryHive, string subKeyPath, string valueName,
-            RegistryValueKind registryValueKind)
+            RegistryValueType registryValueType)
         {
-            return registryValueKind switch
+            return registryValueType switch
             {
-                RegistryValueKind.DWord => GetValueCommand(registryHive, subKeyPath, valueName, RegistryValueKind.DWord)
+                RegistryValueType.DWord => GetValueCommand(registryHive, subKeyPath, valueName, RegistryValueType.DWord)
                     .GetPropertyValue("uValue"),
-                RegistryValueKind.QWord => GetValueCommand(registryHive, subKeyPath, valueName, RegistryValueKind.QWord)
+                RegistryValueType.QWord => GetValueCommand(registryHive, subKeyPath, valueName, RegistryValueType.QWord)
                     .GetPropertyValue("uValue"),
-                RegistryValueKind.Binary => GetValueCommand(registryHive, subKeyPath, valueName, RegistryValueKind.Binary)
+                RegistryValueType.Binary => GetValueCommand(registryHive, subKeyPath, valueName, RegistryValueType.Binary)
                     .GetPropertyValue("uValue"),
-                RegistryValueKind.String => GetValueCommand(registryHive, subKeyPath, valueName, RegistryValueKind.String)
+                RegistryValueType.String => GetValueCommand(registryHive, subKeyPath, valueName, RegistryValueType.String)
                     .GetPropertyValue("sValue"),
-                RegistryValueKind.ExpandedString => GetValueCommand(registryHive, subKeyPath, valueName,
-                        RegistryValueKind.ExpandedString)
+                RegistryValueType.ExpandedString => GetValueCommand(registryHive, subKeyPath, valueName,
+                        RegistryValueType.ExpandedString)
                     .GetPropertyValue("sValue"),
-                RegistryValueKind.MultiString => GetValueCommand(registryHive, subKeyPath, valueName,
-                        RegistryValueKind.MultiString)
+                RegistryValueType.MultiString => GetValueCommand(registryHive, subKeyPath, valueName,
+                        RegistryValueType.MultiString)
                     .GetPropertyValue("sValue"),
-                _ => throw new ArgumentOutOfRangeException(nameof(registryValueKind), registryValueKind, null)
+                _ => throw new ArgumentOutOfRangeException(nameof(registryValueType), registryValueType, null)
             };
         }
 
         // TODO: Here must be methods to retrieve the rest reg data types
 
         /// <summary>
-        ///     Method sets the data value for a named value whose data type is REG_BINARY.
+        ///     Method sets the data value for a named value whose data type is <b>REG_BINARY</b>.
         /// </summary>
         /// <param name="registryHive">A registry tree, also known as a hive, that contains the SubKey path.</param>
         /// <param name="subKeyPath">A key that contains the named value to be set.</param>
@@ -188,12 +187,12 @@ namespace WmiRegistryWrapper
         /// <returns>True if the operation was successful, False if not.</returns>
         public bool TrySetValue(RegistryHive registryHive, string subKeyPath, string valueName, IEnumerable<byte> value)
         {
-            return (uint) SetValueCommand(registryHive, subKeyPath, valueName, value, RegistryValueKind.Binary)
+            return (uint) SetValueCommand(registryHive, subKeyPath, valueName, value, RegistryValueType.Binary)
                 .GetPropertyValue("ReturnValue") == 0;
         }
 
         /// <summary>
-        ///     Method sets the data value for a named value whose data type is REG_SZ.
+        ///     Method sets the data value for a named value whose data type is <b>REG_SZ</b> or <b>REG_EXPAND_SZ</b>.
         /// </summary>
         /// <param name="registryHive">A registry tree, also known as a hive, that contains the SubKey path.</param>
         /// <param name="subKeyPath">A key that contains the named value to be set.</param>
@@ -202,16 +201,20 @@ namespace WmiRegistryWrapper
         ///     You can specify an existing named value (update) or a new named value (create).
         ///     Specify an empty string to set the data value for the default named value.
         /// </param>
-        /// <param name="value">A string to be set in a named value</param>
+        /// <param name="value">A string or string framed with "%" to be set in a named value</param>
         /// <returns>True if the operation was successful, False if not.</returns>
         public bool TrySetValue(RegistryHive registryHive, string subKeyPath, string valueName, string value)
         {
-            return (uint) SetValueCommand(registryHive, subKeyPath, valueName, value, RegistryValueKind.String)
+            if (IsExpandedString(value))
+                return (uint) SetValueCommand(registryHive, subKeyPath, valueName, value, RegistryValueType.ExpandedString)
+                    .GetPropertyValue("ReturnValue") == 0;
+            
+            return (uint) SetValueCommand(registryHive, subKeyPath, valueName, value, RegistryValueType.String)
                 .GetPropertyValue("ReturnValue") == 0;
         }
 
         /// <summary>
-        ///     Method sets the data value for a named value whose data type is REG_DWORD.
+        ///     Method sets the data value for a named value whose data type is <b>REG_DWORD</b>.
         /// </summary>
         /// <param name="registryHive">A registry tree, also known as a hive, that contains the SubKey path.</param>
         /// <param name="subKeyPath">A key that contains the named value to be set.</param>
@@ -224,7 +227,43 @@ namespace WmiRegistryWrapper
         /// <returns>True if the operation was successful, False if not.</returns>
         public bool TrySetValue(RegistryHive registryHive, string subKeyPath, string valueName, uint value)
         {
-            return (uint) SetValueCommand(registryHive, subKeyPath, valueName, value, RegistryValueKind.DWord)
+            return (uint) SetValueCommand(registryHive, subKeyPath, valueName, value, RegistryValueType.DWord)
+                .GetPropertyValue("ReturnValue") == 0;
+        }
+        
+        /// <summary>
+        ///     Method sets the data value for a named value whose data type is <b>REG_QWORD</b>.
+        /// </summary>
+        /// <param name="registryHive">A registry tree, also known as a hive, that contains the SubKey path.</param>
+        /// <param name="subKeyPath">A key that contains the named value to be set.</param>
+        /// <param name="valueName">
+        ///     A named value whose data value you are setting.
+        ///     You can specify an existing named value (update) or a new named value (create).
+        ///     Specify an empty string to set the data value for the default named value.
+        /// </param>
+        /// <param name="value">A QWORD data value for the named value.</param>
+        /// <returns>True if the operation was successful, False if not.</returns>
+        public bool TrySetValue(RegistryHive registryHive, string subKeyPath, string valueName, ulong value)
+        {
+            return (uint) SetValueCommand(registryHive, subKeyPath, valueName, value, RegistryValueType.QWord)
+                .GetPropertyValue("ReturnValue") == 0;
+        }
+        
+        /// <summary>
+        ///     Method sets the data value for a named value whose data type is <b>REG_MULTI_SZ</b>.
+        /// </summary>
+        /// <param name="registryHive">A registry tree, also known as a hive, that contains the SubKey path.</param>
+        /// <param name="subKeyPath">A key that contains the named value to be set.</param>
+        /// <param name="valueName">
+        ///     A named value whose data value you are setting.
+        ///     You can specify an existing named value (update) or a new named value (create).
+        ///     Specify an empty string to set the data value for the default named value.
+        /// </param>
+        /// <param name="value">An array of string data values.</param>
+        /// <returns>True if the operation was successful, False if not.</returns>
+        public bool TrySetValue(RegistryHive registryHive, string subKeyPath, string valueName, IEnumerable<string> value)
+        {
+            return (uint) SetValueCommand(registryHive, subKeyPath, valueName, value, RegistryValueType.MultiString)
                 .GetPropertyValue("ReturnValue") == 0;
         }
 
@@ -243,9 +282,9 @@ namespace WmiRegistryWrapper
         }
 
         private ManagementBaseObject GetValueCommand(RegistryHive registryHive, string subKeyPath,
-            string valueName, RegistryValueKind registryValueKind)
+            string valueName, RegistryValueType registryValueType)
         {
-            var methodName = ConvertGetValueType(registryValueKind);
+            var methodName = ConvertGetValueType(registryValueType);
             var methodParams = Registry.GetMethodParameters(methodName);
 
             methodParams["hDefKey"] = registryHive;
@@ -257,68 +296,70 @@ namespace WmiRegistryWrapper
         }
 
         private ManagementBaseObject SetValueCommand(RegistryHive registryHive, string subKeyPath,
-            string valueName, object value, RegistryValueKind registryValueKind)
+            string valueName, object value, RegistryValueType registryValueType)
         {
-            var methodName = ConvertSetValueType(registryValueKind);
+            var methodName = ConvertSetValueType(registryValueType);
             var methodParams = Registry.GetMethodParameters(methodName);
 
             methodParams["hDefKey"] = registryHive;
             methodParams["sSubKeyName"] = subKeyPath;
             methodParams["sValueName"] = valueName;
-            switch (registryValueKind)
+            switch (registryValueType)
             {
-                case RegistryValueKind.Binary:
+                case RegistryValueType.Binary:
                     methodParams["uValue"] = value;
                     break;
-                case RegistryValueKind.DWord:
+                case RegistryValueType.DWord:
                     methodParams["uValue"] = value;
                     break;
-                case RegistryValueKind.QWord:
+                case RegistryValueType.QWord:
                     methodParams["uValue"] = value;
                     break;
-                case RegistryValueKind.ExpandedString:
+                case RegistryValueType.ExpandedString:
                     methodParams["sValue"] = value;
                     break;
-                case RegistryValueKind.MultiString:
+                case RegistryValueType.MultiString:
                     methodParams["sValue"] = value;
                     break;
-                case RegistryValueKind.String:
+                case RegistryValueType.String:
                     methodParams["sValue"] = value;
                     break;
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(registryValueKind), registryValueKind, null);
+                    throw new ArgumentOutOfRangeException(nameof(registryValueType), registryValueType, null);
             }
 
             return Registry.InvokeMethod(methodName, methodParams, new InvokeMethodOptions()) ??
                    throw new InvalidOperationException();
         }
 
-        private static string ConvertGetValueType(RegistryValueKind entry)
+        private static string ConvertGetValueType(RegistryValueType entry)
         {
             return entry switch
             {
-                RegistryValueKind.Binary => "GetBinaryValue",
-                RegistryValueKind.DWord => "GetDWORDValue",
-                RegistryValueKind.ExpandedString => "GetExpandedStringValue",
-                RegistryValueKind.MultiString => "GetMultiStringValue",
-                RegistryValueKind.String => "GetStringValue",
-                RegistryValueKind.QWord => "GetQWORDValue",
+                RegistryValueType.Binary => "GetBinaryValue",
+                RegistryValueType.DWord => "GetDWORDValue",
+                RegistryValueType.ExpandedString => "GetExpandedStringValue",
+                RegistryValueType.MultiString => "GetMultiStringValue",
+                RegistryValueType.String => "GetStringValue",
+                RegistryValueType.QWord => "GetQWORDValue",
                 _ => throw new ArgumentOutOfRangeException(nameof(entry), entry, null)
             };
         }
 
-        private static string ConvertSetValueType(RegistryValueKind entry)
+        private static string ConvertSetValueType(RegistryValueType entry)
         {
             return entry switch
             {
-                RegistryValueKind.Binary => "SetBinaryValue",
-                RegistryValueKind.DWord => "SetDWORDValue",
-                RegistryValueKind.ExpandedString => "SetExpandedStringValue",
-                RegistryValueKind.MultiString => "SetMultiStringValue",
-                RegistryValueKind.String => "SetStringValue",
-                RegistryValueKind.QWord => "SetQWORDValue",
+                RegistryValueType.Binary => "SetBinaryValue",
+                RegistryValueType.DWord => "SetDWORDValue",
+                RegistryValueType.ExpandedString => "SetExpandedStringValue",
+                RegistryValueType.MultiString => "SetMultiStringValue",
+                RegistryValueType.String => "SetStringValue",
+                RegistryValueType.QWord => "SetQWORDValue",
                 _ => throw new ArgumentOutOfRangeException(nameof(entry), entry, null)
             };
         }
+
+        private static bool IsExpandedString(string str) => str.StartsWith('%') && str.EndsWith('%');
     }
 }
